@@ -22,6 +22,7 @@ import dev.pegasus.appusagehistory.utils.GeneralUtils.showToast
 class MainActivity : AppCompatActivity() {
 
     private val binding by lazy { ActivityMainBinding.inflate(layoutInflater) }
+    private val usageStatsAdapter by lazy { UsageStatsAdapter() }
     private val usageStatsManager by lazy { getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager }
 
     private val resultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ ->
@@ -32,9 +33,14 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
 
+        initRecyclerView()
         fetchAppUsage()
 
         binding.mbRequestPermission.setOnClickListener { requestForPermission() }
+    }
+
+    private fun initRecyclerView() {
+        binding.rvList.adapter = usageStatsAdapter
     }
 
     private fun fetchAppUsage() {
@@ -72,31 +78,35 @@ class MainActivity : AppCompatActivity() {
             return
         }
         binding.mbRequestPermission.visibility = View.GONE
-        queryAppUsageState()
+        //queryAppUsageState()
+        getNonSystemAppsList()
     }
 
     private fun queryAppUsageState() {
-        var result = ""
+        val arrayList = ArrayList<String>()
         val currentTime = System.currentTimeMillis()
         val startTime = currentTime - (1000 * 60 * 10)      // 10 minutes ago
         val usageEvents = usageStatsManager.queryEvents(startTime, currentTime)
         val usageEvent = UsageEvents.Event()
         while (usageEvents.hasNextEvent()) {
             usageEvents.getNextEvent(usageEvent)
-            result += " Package - ${usageEvent.packageName} Time -  ${usageEvent.timeStamp} \n"
+            arrayList.add(" Package - ${usageEvent.packageName} Time -  ${usageEvent.timeStamp}")
         }
-        binding.mtvResult.text = result
+        usageStatsAdapter.submitList(arrayList.toList())
     }
 
-    private fun getNonSystemAppsList(): Map<String, String> {
+    private fun getNonSystemAppsList() {
+        val arrayList = ArrayList<String>()
         val appInfoList = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-        val appInfoMap = HashMap<String, String>()
         for (appInfo in appInfoList) {
             if (appInfo.flags != ApplicationInfo.FLAG_SYSTEM) {
-                appInfoMap[appInfo.packageName] = packageManager.getApplicationLabel(appInfo).toString()
+                //val temp = "PackageName: ${appInfo.packageName} ---- ${packageManager.getApplicationLabel(appInfo)}"
+                val temp = packageManager.getApplicationLabel(appInfo).toString()
+                arrayList.add(temp)
             }
         }
-        return appInfoMap
+        arrayList.sortWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it })
+        usageStatsAdapter.submitList(arrayList.toList())
     }
 
     private fun requestForPermission() {
